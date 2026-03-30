@@ -57,23 +57,42 @@ const App = () => {
 
             {result && (
                 <div className="result">
-                    <div
-                        className="type-badge"
-                        style={{ background: typeColors[result.type] }}
-                    >
-                        {typeLabels[result.type]}
-                    </div>
-                    <h2>{result.title}</h2>
-                    <div className="meta">
-                        <span>Priority: {result.priority}</span>
-                    </div>
-                    <a
-                        href={result.notion_url}
-                        target="_blank"
-                        rel="noreferrer"
-                    >
-                        View in Notion →
-                    </a>
+                    {result.duplicate ? (
+                        <>
+                            <div className="duplicate-badge">
+                                ⚠ Already exists
+                            </div>
+                            <h2>Similar item found</h2>
+                            <p className="duplicate-text">{result.existing}</p>
+                            <a
+                                href={result.notion_url}
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                View in Notion →
+                            </a>
+                        </>
+                    ) : (
+                        <>
+                            <div
+                                className="type-badge"
+                                style={{ background: typeColors[result.type] }}
+                            >
+                                {typeLabels[result.type]}
+                            </div>
+                            <h2>{result.title}</h2>
+                            <div className="meta">
+                                <span>Priority: {result.priority}</span>
+                            </div>
+                            <a
+                                href={result.notion_url}
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                View in Notion →
+                            </a>
+                        </>
+                    )}
                 </div>
             )}
         </div>

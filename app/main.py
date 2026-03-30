@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from app.classifier import classify_message
 from app.notion import save_to_notion
 from fastapi.middleware.cors import CORSMiddleware
+from app.memory import add_to_memory, search_similar
 
 load_dotenv()
 
@@ -27,11 +28,24 @@ def root():
 @app.post("/process")
 def process_message(request: MessageRequest):
     try:
-        print(f"Message received: {request.message}")
+
+        similar = search_similar(request.message)
+        
+        if similar:
+            return {
+                "duplicate": True,
+                "message": "Similar item already exists.",
+                "existing": similar["text"],
+                "notion": similar["notion"]
+            }
+
         classification = classify_message(request.message)
-        print(f"Classification: {classification}")
+
         url = save_to_notion(classification)
+
+        add_to_memory(message_id=url, text=request.message, url=url)
         return {
+            "duplicate": False,
             "type": classification.type,
             "title": classification.title,
             "priority": classification.priority,
