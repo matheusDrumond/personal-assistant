@@ -1,0 +1,150 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #0a0a0f;
+    color: #e8e8f0;
+    font-family: "Inter", sans-serif;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 64px 24px;
+}
+
+header {
+    margin-bottom: 48px;
+}
+
+header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin-bottom: 8px;
+}
+
+header p {
+    color: #5a5a72;
+    font-size: 15px;
+}
+
+.input-area {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 32px;
+}
+
+textarea {
+    background: #111118;
+    border: 1px solid #1e1e2e;
+    border-radius: 12px;
+    color: #e8e8f0;
+    font-size: 15px;
+    font-family: inherit;
+    padding: 16px;
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s;
+    line-height: 1.6;
+}
+
+textarea:focus {
+    border-color: #7fff6e;
+}
+
+textarea::placeholder {
+    color: #5a5a72;
+}
+
+button {
+    background: #7fff6e;
+    border: none;
+    border-radius: 10px;
+    color: #0a0a0f;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: inherit;
+    padding: 14px;
+    transition: opacity 0.2s;
+}
+
+button:hover {
+    opacity: 0.85;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.error {
+    background: rgba(255, 80, 80, 0.1);
+    border: 1px solid rgba(255, 80, 80, 0.3);
+    border-radius: 10px;
+    color: #ff6b6b;
+    font-size: 14px;
+    padding: 14px 16px;
+    margin-bottom: 24px;
+}
+
+.result {
+    background: #111118;
+    border: 1px solid #1e1e2e;
+    border-radius: 14px;
+    padding: 24px;
+    animation: fadeUp 0.3s ease;
+}
+
+.type-badge {
+    display: inline-block;
+    border-radius: 6px;
+    color: #0a0a0f;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 4px 10px;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+}
+
+.result h2 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 10px;
+}
+
+.meta {
+    color: #5a5a72;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+
+.result a {
+    color: #7fff6e;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.result a:hover {
+    text-decoration: underline;
+}
+
+@keyframes fadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
