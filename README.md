@@ -10,7 +10,7 @@ Tasks scattered across notes apps, ideas lost in chat messages, emails to reply 
 
 ## The Solution
 
-Send a message describing anything — a task, an idea, an email you need to reply to — and the system classifies, structures, and automatically saves it to the right Notion database.
+Send a message describing anything — a task, an idea, an email you need to reply to — and the system classifies, structures, and automatically saves it to the right Notion database. Before saving, it checks if a similar item already exists to avoid duplicates.
 
 **Example:**
 
@@ -20,19 +20,34 @@ Input: "need to study RAG concepts before the interview on Friday"
 Output: saved to Tasks with title "Study RAG concepts", priority "medium"
 ```
 
+```
+Input: "study RAG before Friday" (sent again)
+
+Output: similar item already exists — returns link to existing Notion entry
+```
+
 ## Architecture
 
 ```
-Request (message) → FastAPI → Gemini (classify + structure) → Notion API (save)
-      ↑
+Request (message)
+       ↓
+ChromaDB (check for similar items)
+       ↓
+  duplicate? → return existing Notion link
+       ↓
+Gemini (classify + structure)
+       ↓
+Notion API (save) + ChromaDB (store embedding)
+       ↑
 React Frontend
 ```
 
-Three components with separated responsibilities:
+Four components with separated responsibilities:
 
-- **`app/main.py`** — receives and validates requests, configures CORS
+- **`app/main.py`** — receives and validates requests, configures CORS, orchestrates the flow
 - **`app/classifier.py`** — classification logic with Gemini and Pydantic validation
 - **`app/notion.py`** — Notion API integration
+- **`app/memory.py`** — RAG memory layer with ChromaDB and sentence-transformers
 
 ## Technical Decisions
 
@@ -44,21 +59,23 @@ Three components with separated responsibilities:
 
 **Notion** for its simple REST API, native support for structured databases, and a visual interface that end users can customize without touching the code.
 
+**ChromaDB + sentence-transformers** for the RAG memory layer: instead of exact string matching, the system uses semantic embeddings to detect similar messages regardless of how they're phrased. This prevents duplicate entries in Notion.
+
 **React + Vite** for the frontend due to fast development experience and optimized builds. CORS configured on the API to accept requests from the local frontend.
 
 ## Stack
 
 **Backend**
-
 - Python 3.13
 - FastAPI + Uvicorn
 - Pydantic v2
 - Google Gemini API (`google-genai`)
 - Notion API
+- ChromaDB
+- sentence-transformers (`all-MiniLM-L6-v2`)
 - python-dotenv
 
 **Frontend**
-
 - React 19
 - Vite
 - Plain CSS
@@ -75,7 +92,7 @@ Three components with separated responsibilities:
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/personal-assistant
+git clone https://github.com/matheusDrumond/personal-assistant
 cd personal-assistant
 ```
 
@@ -92,8 +109,8 @@ Create a `.env` file in the root directory:
 ```env
 GEMINI_API_KEY=your_gemini_key
 NOTION_TOKEN=your_integration_token
-NOTION_TAREFAS_ID=your_tasks_database_id
-NOTION_NOTAS_ID=your_notes_database_id
+NOTION_TASKS_ID=your_tasks_database_id
+NOTION_NOTES_ID=your_notes_database_id
 NOTION_INBOX_ID=your_inbox_database_id
 ```
 
@@ -106,29 +123,25 @@ NOTION_INBOX_ID=your_inbox_database_id
 ### 4. Set up Notion
 
 **Create the integration:**
-
 1. Go to [notion.so/my-integrations](https://notion.so/my-integrations)
 2. Click **"New integration"**
 3. Name it `personal-assistant`
 4. Copy the **"Internal Integration Token"** and add it to `.env`
 
 **Create the databases:**
-
 1. Create a Notion page called **"Personal Assistant"**
 2. Inside it, create three **Table** databases:
-    - `Tasks`
-    - `Notes`
-    - `Inbox`
+   - `Tasks`
+   - `Notes`
+   - `Inbox`
 3. In each database, add a property called **"Priority"** of type **Select** with options: `high`, `medium`, `low`
 
 **Connect the integration:**
-
 1. Open each database
 2. Click **"..."** in the top right corner
 3. Go to **"Connections"** and add `personal-assistant`
 
 **Get the database IDs:**
-
 1. Open each database as a full page
 2. Copy the link — the ID is the sequence after the last `/` and before `?`
 3. Add each ID to `.env`
@@ -164,7 +177,7 @@ Interface available at `http://localhost:5173`
 
 ### Via web interface
 
-Go to `http://localhost:5173`, type your message and click Send. The result appears with a direct link to Notion.
+Go to `http://localhost:5173`, type your message and click Send. The result appears with a direct link to Notion. If a similar item already exists, you'll see a warning with a link to the existing entry.
 
 ### Via API
 
@@ -172,37 +185,50 @@ Go to `http://localhost:5173`, type your message and click Send. The result appe
 
 ```json
 {
-    "message": "call the client tomorrow at 10am to close the contract"
+  "message": "call the client tomorrow at 10am to close the contract"
 }
 ```
 
-Response:
+New item response:
 
 ```json
 {
-    "type": "task",
-    "title": "Call client to close contract",
-    "priority": "high",
-    "notion_url": "https://notion.so/..."
+  "duplicate": false,
+  "type": "task",
+  "title": "Call client to close contract",
+  "priority": "high",
+  "notion_url": "https://notion.so/..."
+}
+```
+
+Duplicate detected response:
+
+```json
+{
+  "duplicate": true,
+  "message": "Similar item already exists.",
+  "existing": "call the client tomorrow at 10am to close the contract",
+  "notion_url": "https://notion.so/..."
 }
 ```
 
 ## Supported Types
 
-| Type    | When it's used                                      | Notion Database |
-| ------- | --------------------------------------------------- | --------------- |
-| `task`  | Something that needs to be done, has a clear action | Tasks           |
-| `note`  | Idea, insight, information to save                  | Notes           |
-| `inbox` | Email or message that needs a reply                 | Inbox           |
+| Type | When it's used | Notion Database |
+|------|---------------|-----------------|
+| `task` | Something that needs to be done, has a clear action | Tasks |
+| `note` | Idea, insight, information to save | Notes |
+| `inbox` | Email or message that needs a reply | Inbox |
 
 ## Project Structure
 
 ```
 personal-assistant/
 ├── app/
-│   ├── main.py          # FastAPI — endpoints and CORS
-│   ├── classifier.py    # Gemini integration
-│   └── notion.py        # Notion API integration
+│   ├── main.py          # FastAPI — endpoints, CORS, flow orchestration
+│   ├── classifier.py    # Gemini integration and Pydantic validation
+│   ├── notion.py        # Notion API integration
+│   └── memory.py        # RAG memory layer — ChromaDB + embeddings
 ├── frontend/
 │   ├── src/
 │   │   ├── App.jsx      # Main component
