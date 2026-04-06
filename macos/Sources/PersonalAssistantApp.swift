@@ -2,10 +2,10 @@ import SwiftUI
 
 @main
 struct PersonalAssistantApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
     var body: some Scene {
-        MenuBarExtra("Personal Assistant", systemImage: "brain") {
-            ContentView()
-        }
-        .menuBarExtraStyle(.window)
+        // UI é gerenciada pelo AppDelegate via NSStatusItem + NSPopover
+        Settings { EmptyView() }
     }
 }

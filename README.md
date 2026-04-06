@@ -49,10 +49,11 @@ Four backend components with separated responsibilities:
 - **`app/notion.py`** — Notion API integration
 - **`app/memory.py`** — RAG memory layer with ChromaDB and sentence-transformers
 
-Three Swift files for the native macOS frontend:
+Four Swift files for the native macOS frontend:
 
-- **`macos/Sources/PersonalAssistantApp.swift`** — app entry point, `MenuBarExtra` scene
-- **`macos/Sources/ContentView.swift`** — UI (dark theme, input, result card)
+- **`macos/Sources/PersonalAssistantApp.swift`** — app entry point, delegates UI to `AppDelegate`
+- **`macos/Sources/AppDelegate.swift`** — `NSStatusItem` + `NSPopover`, global hotkey registration
+- **`macos/Sources/ContentView.swift`** — SwiftUI UI, adapts to system light/dark theme
 - **`macos/Sources/APIService.swift`** — HTTP client via `URLSession`
 
 ## Technical Decisions
@@ -65,7 +66,7 @@ Three Swift files for the native macOS frontend:
 
 **ChromaDB + sentence-transformers** for the RAG memory layer: instead of exact string matching, the system uses semantic embeddings to detect similar messages regardless of how they're phrased. This prevents duplicate entries in Notion.
 
-**SwiftUI + MenuBarExtra** for the frontend: a native macOS menu bar app gives instant access from anywhere on the desktop without occupying Dock space or requiring a browser. The Swift `URLSession` communicates directly with the local FastAPI backend — no CORS issues since native apps don't send `Origin` headers.
+**SwiftUI + NSStatusItem/NSPopover** for the frontend: a native macOS menu bar app gives instant access from anywhere on the desktop without occupying Dock space or requiring a browser. The popover uses system semantic colors and materials, automatically adapting to macOS light/dark mode and the user's accent color. The Swift `URLSession` communicates directly with the local FastAPI backend — no CORS issues since native apps don't send `Origin` headers.
 
 ## Stack
 
@@ -83,8 +84,9 @@ Three Swift files for the native macOS frontend:
 - Swift 5.9
 - SwiftUI (macOS 13+)
 - Swift Package Manager
-- `MenuBarExtra` (native menu bar integration)
+- `NSStatusItem` + `NSPopover` (native menu bar integration)
 - `URLSession` (HTTP client)
+- System semantic colors (adapts to light/dark mode)
 
 ## Prerequisites
 
@@ -170,7 +172,15 @@ Swagger docs at `http://localhost:8000/docs`
 
 ## Usage
 
-Click the 🧠 icon in the macOS menu bar, type your message, and press **Cmd+Enter** or click **Enviar**. The result appears with a direct link to Notion. If a similar item already exists, you'll see a warning with a link to the existing entry.
+Click the 🧠 icon in the macOS menu bar to open the popover, type your message, and press **Return** to send. The result appears with a direct link to Notion. If a similar item already exists, you'll see a warning with a link to the existing entry.
+
+### Keyboard shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `⌘ + Shift + Space` | Open / close the popover from anywhere |
+| `Return` | Send the message |
+| `Shift + Return` | New line in the input |
 
 ### Via API
 
@@ -224,8 +234,9 @@ personal-assistant/
 │   └── memory.py        # RAG memory layer — ChromaDB + embeddings
 ├── macos/
 │   ├── Sources/
-│   │   ├── PersonalAssistantApp.swift  # App entry point (MenuBarExtra)
-│   │   ├── ContentView.swift           # UI — dark theme, input, result card
+│   │   ├── PersonalAssistantApp.swift  # App entry point
+│   │   ├── AppDelegate.swift           # NSStatusItem, NSPopover, global hotkey
+│   │   ├── ContentView.swift           # SwiftUI UI — native theme, input, result card
 │   │   ├── APIService.swift            # HTTP client (URLSession)
 │   │   └── Models.swift                # Codable request/response structs
 │   ├── Package.swift    # Swift Package Manager config

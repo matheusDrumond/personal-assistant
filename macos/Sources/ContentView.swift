@@ -96,9 +96,10 @@ struct ContentView: View {
                 .padding(10)
                 .background(.quinary, in: RoundedRectangle(cornerRadius: 8))
                 .focused($inputFocused)
+                .onSubmit(submit)
 
             HStack {
-                Text("⌘ Return para enviar")
+                Text("Return para enviar · Shift+Return para nova linha")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                 Spacer()
@@ -112,7 +113,6 @@ struct ContentView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!canSend)
-                .keyboardShortcut(.return, modifiers: .command)
             }
 
             if let result {
