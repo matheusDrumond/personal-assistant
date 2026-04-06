@@ -35,7 +35,7 @@ ChromaDB (check for similar items)
        ↓
   duplicate? → return existing Notion link
        ↓
-Gemini (classify + structure)
+Groq (classify + structure)
        ↓
 Notion API (save) + ChromaDB (store embedding)
        ↑
@@ -45,7 +45,7 @@ React Frontend
 Four components with separated responsibilities:
 
 - **`app/main.py`** — receives and validates requests, configures CORS, orchestrates the flow
-- **`app/classifier.py`** — classification logic with Gemini and Pydantic validation
+- **`app/classifier.py`** — classification logic with Groq and Pydantic validation
 - **`app/notion.py`** — Notion API integration
 - **`app/memory.py`** — RAG memory layer with ChromaDB and sentence-transformers
 
@@ -53,12 +53,9 @@ Four components with separated responsibilities:
 
 **FastAPI** was chosen for its straightforward endpoint structure, automatic input validation with Pydantic, and auto-generated Swagger documentation.
 
-**Pydantic v2** to validate Gemini's output: if the model returns a field with the wrong type or missing entirely, the system raises an error immediately instead of silently propagating invalid data through the pipeline.
+**Pydantic v2** to validate Groq's output: if the model returns a field with the wrong type or missing entirely, the system raises an error immediately instead of silently propagating invalid data through the pipeline.
 
-**Gemini Flash** for its generous free tier and quality sufficient for text classification — heavier models would be a waste of cost for this task.
-
-**Notion** for its simple REST API, native support for structured databases, and a visual interface that end users can customize without touching the code.
-
+**Llama 3 8B** for its speed and quality sufficient for text classification — heavier models would be a waste of cost for this task.
 **ChromaDB + sentence-transformers** for the RAG memory layer: instead of exact string matching, the system uses semantic embeddings to detect similar messages regardless of how they're phrased. This prevents duplicate entries in Notion.
 
 **React + Vite** for the frontend due to fast development experience and optimized builds. CORS configured on the API to accept requests from the local frontend.
@@ -69,7 +66,7 @@ Four components with separated responsibilities:
 - Python 3.13
 - FastAPI + Uvicorn
 - Pydantic v2
-- Google Gemini API (`google-genai`)
+- Groq API (`groq`)
 - Notion API
 - ChromaDB
 - sentence-transformers (`all-MiniLM-L6-v2`)
@@ -92,7 +89,7 @@ Four components with separated responsibilities:
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/matheusDrumond/personal-assistant
+git clone https://github.com/lucaspanzera1/personal-assistant
 cd personal-assistant
 ```
 
@@ -107,17 +104,17 @@ pip install -r requirements.txt
 Create a `.env` file in the root directory:
 
 ```env
-GEMINI_API_KEY=your_gemini_key
+GROQ_API_KEY=your_groq_key
 NOTION_TOKEN=your_integration_token
 NOTION_TASKS_ID=your_tasks_database_id
 NOTION_NOTES_ID=your_notes_database_id
 NOTION_INBOX_ID=your_inbox_database_id
 ```
 
-### 3. Set up Gemini
+### 3. Set up Groq
 
-1. Go to [Google AI Studio](https://aistudio.google.com)
-2. Click **"Get API Key"**
+1. Go to [Groq Console](https://console.groq.com/)
+2. Create an API key
 3. Copy the key and add it to `.env`
 
 ### 4. Set up Notion
@@ -226,7 +223,7 @@ Duplicate detected response:
 personal-assistant/
 ├── app/
 │   ├── main.py          # FastAPI — endpoints, CORS, flow orchestration
-│   ├── classifier.py    # Gemini integration and Pydantic validation
+│   ├── classifier.py    # Groq integration and Pydantic validation
 │   ├── notion.py        # Notion API integration
 │   └── memory.py        # RAG memory layer — ChromaDB + embeddings
 ├── frontend/
