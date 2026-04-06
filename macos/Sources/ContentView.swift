@@ -137,20 +137,21 @@ struct ContentView: View {
     private var canSend: Bool { !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isLoading }
 
     var body: some View {
-        C.bg.ignoresSafeArea()
-            .overlay {
-                VStack(alignment: .center, spacing: 24) {
-                    header
-                    inputSection
-                    if let result { ResultCard(result: result).transition(.move(edge: .bottom).combined(with: .opacity)) }
-                    if let errorText { errorBanner(errorText) }
-                    Spacer(minLength: 0)
-                }
-                .padding(32)
-                .frame(maxWidth: 640)
+        VStack(alignment: .leading, spacing: 20) {
+            header
+            inputSection
+            if let result {
+                ResultCard(result: result)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-            .frame(minWidth: 500, idealWidth: 640, minHeight: 420)
-            .onAppear { inputFocused = true }
+            if let errorText {
+                errorBanner(errorText)
+            }
+        }
+        .padding(20)
+        .frame(width: 380)
+        .background(C.bg)
+        .onAppear { inputFocused = true }
     }
 
     // MARK: Subviews

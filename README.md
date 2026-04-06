@@ -1,6 +1,6 @@
 # Personal Assistant
 
-An AI-powered personal assistant API that receives messages in natural language, automatically classifies the content type, and organizes everything in Notion — no friction, no switching between apps.
+An AI-powered personal assistant that receives messages in natural language, automatically classifies the content type, and organizes everything in Notion — no friction, no switching between apps.
 
 Built from scratch with a real understanding of every technical decision: from API structure to LLM integration and external service communication.
 
@@ -29,7 +29,9 @@ Output: similar item already exists — returns link to existing Notion entry
 ## Architecture
 
 ```
-Request (message)
+macOS Menu Bar App (SwiftUI)
+       ↓
+POST /process (JSON)
        ↓
 ChromaDB (check for similar items)
        ↓
@@ -38,16 +40,20 @@ ChromaDB (check for similar items)
 Groq (classify + structure)
        ↓
 Notion API (save) + ChromaDB (store embedding)
-       ↑
-React Frontend
 ```
 
-Four components with separated responsibilities:
+Four backend components with separated responsibilities:
 
 - **`app/main.py`** — receives and validates requests, configures CORS, orchestrates the flow
 - **`app/classifier.py`** — classification logic with Groq and Pydantic validation
 - **`app/notion.py`** — Notion API integration
 - **`app/memory.py`** — RAG memory layer with ChromaDB and sentence-transformers
+
+Three Swift files for the native macOS frontend:
+
+- **`macos/Sources/PersonalAssistantApp.swift`** — app entry point, `MenuBarExtra` scene
+- **`macos/Sources/ContentView.swift`** — UI (dark theme, input, result card)
+- **`macos/Sources/APIService.swift`** — HTTP client via `URLSession`
 
 ## Technical Decisions
 
@@ -56,9 +62,10 @@ Four components with separated responsibilities:
 **Pydantic v2** to validate Groq's output: if the model returns a field with the wrong type or missing entirely, the system raises an error immediately instead of silently propagating invalid data through the pipeline.
 
 **Llama 3 8B** for its speed and quality sufficient for text classification — heavier models would be a waste of cost for this task.
+
 **ChromaDB + sentence-transformers** for the RAG memory layer: instead of exact string matching, the system uses semantic embeddings to detect similar messages regardless of how they're phrased. This prevents duplicate entries in Notion.
 
-**React + Vite** for the frontend due to fast development experience and optimized builds. CORS configured on the API to accept requests from the local frontend.
+**SwiftUI + MenuBarExtra** for the frontend: a native macOS menu bar app gives instant access from anywhere on the desktop without occupying Dock space or requiring a browser. The Swift `URLSession` communicates directly with the local FastAPI backend — no CORS issues since native apps don't send `Origin` headers.
 
 ## Stack
 
@@ -72,16 +79,19 @@ Four components with separated responsibilities:
 - sentence-transformers (`all-MiniLM-L6-v2`)
 - python-dotenv
 
-**Frontend**
-- React 19
-- Vite
-- Plain CSS
+**Frontend (macOS)**
+- Swift 5.9
+- SwiftUI (macOS 13+)
+- Swift Package Manager
+- `MenuBarExtra` (native menu bar integration)
+- `URLSession` (HTTP client)
 
 ## Prerequisites
 
 - Python 3.10+
-- Node.js 18+
-- Google AI Studio account (free)
+- macOS 13+
+- Xcode Command Line Tools (`xcode-select --install`)
+- Groq account (free)
 - Notion account (free)
 
 ## Setup
@@ -143,38 +153,24 @@ NOTION_INBOX_ID=your_inbox_database_id
 2. Copy the link — the ID is the sequence after the last `/` and before `?`
 3. Add each ID to `.env`
 
-### 5. Set up the frontend
-
-```bash
-cd frontend
-npm install
-```
-
 ## Running
 
-**Backend** (from the project root):
-
 ```bash
-source venv/bin/activate
-uvicorn app.main:app --reload
+bash macos/run.sh
 ```
+
+This single command:
+1. Kills any running backend and app instances
+2. Starts the FastAPI backend with `--reload`
+3. Builds the Swift app
+4. Launches it as a native macOS menu bar app (🧠 icon in the top bar)
 
 API available at `http://localhost:8000`  
 Swagger docs at `http://localhost:8000/docs`
 
-**Frontend** (from the `frontend` folder):
-
-```bash
-npm run dev
-```
-
-Interface available at `http://localhost:5173`
-
 ## Usage
 
-### Via web interface
-
-Go to `http://localhost:5173`, type your message and click Send. The result appears with a direct link to Notion. If a similar item already exists, you'll see a warning with a link to the existing entry.
+Click the 🧠 icon in the macOS menu bar, type your message, and press **Cmd+Enter** or click **Enviar**. The result appears with a direct link to Notion. If a similar item already exists, you'll see a warning with a link to the existing entry.
 
 ### Via API
 
@@ -226,12 +222,14 @@ personal-assistant/
 │   ├── classifier.py    # Groq integration and Pydantic validation
 │   ├── notion.py        # Notion API integration
 │   └── memory.py        # RAG memory layer — ChromaDB + embeddings
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx      # Main component
-│   │   ├── App.css      # Styles
-│   │   └── constants.js # UI constants
-│   └── package.json
+├── macos/
+│   ├── Sources/
+│   │   ├── PersonalAssistantApp.swift  # App entry point (MenuBarExtra)
+│   │   ├── ContentView.swift           # UI — dark theme, input, result card
+│   │   ├── APIService.swift            # HTTP client (URLSession)
+│   │   └── Models.swift                # Codable request/response structs
+│   ├── Package.swift    # Swift Package Manager config
+│   └── run.sh           # Build + launch script (backend + app)
 ├── requirements.txt
 ├── .env.example
 └── README.md
@@ -242,4 +240,4 @@ personal-assistant/
 - WhatsApp integration via Evolution API
 - Date and deadline support for tasks
 - Message history log
-- Production deploy (Railway + Vercel)
+- Production deploy (Railway)

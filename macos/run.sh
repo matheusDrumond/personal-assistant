@@ -1,8 +1,17 @@
 #!/bin/bash
 set -e
 
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
+# --- Backend ---
+pkill -f "uvicorn app.main:app" 2>/dev/null || true
+echo "Starting backend..."
+python3 -m uvicorn app.main:app --reload &
+BACKEND_PID=$!
+echo "Backend PID: $BACKEND_PID"
+
+# --- Swift app ---
+cd macos
 echo "Building..."
 swift build
 
@@ -37,9 +46,13 @@ cat > "$APP/Contents/Info.plist" << 'EOF'
         <key>NSAllowsLocalNetworking</key>
         <true/>
     </dict>
+    <key>LSUIElement</key>
+    <true/>
 </dict>
 </plist>
 EOF
+
+pkill -x PersonalAssistant 2>/dev/null || true
 
 echo "Launching..."
 open "$APP"
