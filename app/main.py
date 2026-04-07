@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from app.classifier import classify_message
-from app.notion import save_to_notion
+from app.notion import save_to_notion, organize_existing_tasks
 from fastapi.middleware.cors import CORSMiddleware
 from app.memory import add_to_memory, search_similar
 
@@ -21,6 +21,22 @@ app.add_middleware(
 class MessageRequest(BaseModel):
     message: str
 
+
+def _is_organize_tasks_request(message: str) -> bool:
+    text = message.lower()
+    keywords = [
+        "organizar tarefas",
+        "organize tasks",
+        "priorizar tarefas",
+        "prioritize tasks",
+        "reordenar tarefas",
+        "ordenar tarefas",
+        "mais urgentes",
+        "tarefas do dia",
+        "lista de tarefas",
+    ]
+    return any(keyword in text for keyword in keywords)
+
 @app.get("/")
 def root():
     return {"status": "online", "message": "Personal Assistant API"}
@@ -28,6 +44,14 @@ def root():
 @app.post("/process")
 def process_message(request: MessageRequest):
     try:
+        if _is_organize_tasks_request(request.message):
+            result = organize_existing_tasks(request.message)
+            return {
+                "duplicate": False,
+                "type": "task",
+                "title": f"Tarefas organizadas ({result['updated']} atualizadas)",
+                "message": result["summary"],
+            }
 
         similar = search_similar(request.message)
         

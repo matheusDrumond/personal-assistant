@@ -64,6 +64,12 @@ private struct ResultCard: View {
                             .font(.caption)
                     }
                 }
+
+                if let message = result.message, !message.isEmpty {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
