@@ -1,8 +1,8 @@
 import os
 import requests
+import time
 from dotenv import load_dotenv
 from app.classifier import ClassificationOutput, generate_task_organization_plan
-import json
 from typing import Optional
 
 NOTION_TOKEN = os.getenv("NOTION_TOKEN")
@@ -22,23 +22,48 @@ DATABASE_MAP = {
     "inbox": NOTION_INBOX_ID
 }
 
+NOTION_TIMEOUT_SECONDS = 20
+NOTION_MAX_RETRIES = 3
+
+
+def _is_retryable_status(status_code: int) -> bool:
+    return status_code in {429, 500, 502, 503, 504}
+
+
+def _notion_request(method: str, url: str, payload: Optional[dict] = None) -> dict:
+    for attempt in range(NOTION_MAX_RETRIES + 1):
+        try:
+            response = requests.request(
+                method,
+                url,
+                headers=HEADERS,
+                json=payload,
+                timeout=NOTION_TIMEOUT_SECONDS,
+            )
+
+            if _is_retryable_status(response.status_code) and attempt < NOTION_MAX_RETRIES:
+                time.sleep(0.5 * (attempt + 1))
+                continue
+
+            response.raise_for_status()
+            return response.json()
+        except (requests.Timeout, requests.ConnectionError):
+            if attempt < NOTION_MAX_RETRIES:
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            raise
+
 
 def _notion_get(url: str) -> dict:
-    response = requests.get(url, headers=HEADERS)
-    response.raise_for_status()
-    return response.json()
+    return _notion_request("GET", url)
 
 
 def _notion_post(url: str, payload: dict) -> dict:
-    response = requests.post(url, headers=HEADERS, json=payload)
-    response.raise_for_status()
-    return response.json()
+    return _notion_request("POST", url, payload)
 
 
 def _notion_patch(url: str, payload: dict) -> dict:
-    response = requests.patch(url, headers=HEADERS, json=payload)
-    response.raise_for_status()
-    return response.json()
+    return _notion_request("PATCH", url, payload)
 
 
 def _detect_tasks_schema(database_schema: dict) -> dict:
@@ -200,6 +225,8 @@ def _build_property_payload(
 
 def organize_existing_tasks(message: str) -> dict:
     tasks, properties, schema_map = list_tasks_for_organization(limit=50)
+    supports_status = schema_map.get("status") is not None
+    supports_order = schema_map.get("order") is not None
 
     if not tasks:
         return {
@@ -220,7 +247,22 @@ def organize_existing_tasks(message: str) -> dict:
             }
         )
 
-    plan = generate_task_organization_plan(message=message, tasks=ai_tasks)
+    plan = generate_task_organization_plan(
+        message=message,
+        tasks=ai_tasks,
+        supports_status=supports_status,
+        supports_order=supports_order,
+    )
+
+    # If the first plan is empty, ask for at least one practical priority/status/order change.
+    if len(plan.updates) == 0 and len(tasks) > 0:
+        plan = generate_task_organization_plan(
+            message=message,
+            tasks=ai_tasks,
+            supports_status=supports_status,
+            supports_order=supports_order,
+            force_updates=True,
+        )
 
     updated_count = 0
     failed_count = 0
@@ -256,8 +298,8 @@ def organize_existing_tasks(message: str) -> dict:
         "failed": failed_count,
         "requested": len(plan.updates),
         "summary": plan.summary,
-        "supports_order": schema_map.get("order") is not None,
-        "supports_status": schema_map.get("status") is not None,
+        "supports_order": supports_order,
+        "supports_status": supports_status,
     }
 
 def save_to_notion(classification: ClassificationOutput) -> str:
@@ -286,15 +328,5 @@ def save_to_notion(classification: ClassificationOutput) -> str:
             }
         ]
     }
-
-    print(json.dumps(payload, indent=2, ensure_ascii=False))
-    response = requests.post(
-        "https://api.notion.com/v1/pages",
-        headers=HEADERS,
-        json=payload
-    )
-    print(response.status_code)
-    print(response.text)
-
-    response.raise_for_status()
-    return response.json().get("url")
+    response_json = _notion_post("https://api.notion.com/v1/pages", payload)
+    return response_json.get("url")

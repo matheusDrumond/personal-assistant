@@ -22,7 +22,15 @@ actor APIService {
     private let baseURL = "http://localhost:8000"
 
     func process(message: String) async throws -> ProcessResponse {
-        guard let url = URL(string: "\(baseURL)/process") else {
+        try await sendMessage(path: "/process", message: message)
+    }
+
+    func organizeTasks(message: String) async throws -> ProcessResponse {
+        try await sendMessage(path: "/organize-tasks", message: message)
+    }
+
+    private func sendMessage(path: String, message: String) async throws -> ProcessResponse {
+        guard let url = URL(string: "\(baseURL)\(path)") else {
             throw APIError.invalidURL
         }
 

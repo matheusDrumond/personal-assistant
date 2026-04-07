@@ -1,8 +1,9 @@
 import os
+import requests
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from app.classifier import classify_message
+from app.classifier import classify_message, detect_intent
 from app.notion import save_to_notion, organize_existing_tasks
 from fastapi.middleware.cors import CORSMiddleware
 from app.memory import add_to_memory, search_similar
@@ -22,7 +23,7 @@ class MessageRequest(BaseModel):
     message: str
 
 
-def _is_organize_tasks_request(message: str) -> bool:
+def _keyword_organize_fallback(message: str) -> bool:
     text = message.lower()
     keywords = [
         "organizar tarefas",
@@ -37,21 +38,66 @@ def _is_organize_tasks_request(message: str) -> bool:
     ]
     return any(keyword in text for keyword in keywords)
 
+
+def _build_organize_response(message: str) -> dict:
+    result = organize_existing_tasks(message)
+    details = (
+        f"(solicitadas: {result.get('requested', 0)}, "
+        f"falhas: {result.get('failed', 0)}, "
+        f"status: {'ok' if result.get('supports_status') else 'não'}, "
+        f"ordem: {'ok' if result.get('supports_order') else 'não'})"
+    )
+
+    message_text = result["summary"]
+    if result.get("updated", 0) == 0:
+        message_text = f"{result['summary']} Nenhuma tarefa foi alterada {details}."
+
+    return {
+        "duplicate": False,
+        "type": "task",
+        "title": f"Tarefas organizadas ({result['updated']} atualizadas)",
+        "message": message_text,
+    }
+
+
+def _raise_external_service_error(error: requests.HTTPError):
+    status = error.response.status_code if error.response is not None else None
+    if status in {429, 500, 502, 503, 504}:
+        raise HTTPException(
+            status_code=503,
+            detail="Notion está indisponível no momento. Tente novamente em alguns segundos.",
+        )
+    raise HTTPException(status_code=502, detail=f"Erro na API do Notion (status {status}).")
+
 @app.get("/")
 def root():
     return {"status": "online", "message": "Personal Assistant API"}
 
+
+@app.post("/organize-tasks")
+def organize_tasks(request: MessageRequest):
+    try:
+        return _build_organize_response(request.message)
+    except requests.HTTPError as error:
+        _raise_external_service_error(error)
+    except Exception as e:
+        print(f"ERROR: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/process")
 def process_message(request: MessageRequest):
     try:
-        if _is_organize_tasks_request(request.message):
-            result = organize_existing_tasks(request.message)
-            return {
-                "duplicate": False,
-                "type": "task",
-                "title": f"Tarefas organizadas ({result['updated']} atualizadas)",
-                "message": result["summary"],
-            }
+        intent = None
+        try:
+            intent = detect_intent(request.message)
+        except Exception:
+            intent = None
+
+        if intent and intent.intent == "organize_tasks":
+            return _build_organize_response(request.message)
+
+        if intent is None and _keyword_organize_fallback(request.message):
+            return _build_organize_response(request.message)
 
         similar = search_similar(request.message)
         
@@ -75,6 +121,8 @@ def process_message(request: MessageRequest):
             "priority": classification.priority,
             "notion_url": url
         }
+    except requests.HTTPError as error:
+        _raise_external_service_error(error)
     except Exception as e:
         print(f"ERROR: {e}")
         raise HTTPException(status_code=500, detail=str(e))
