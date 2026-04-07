@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 private enum CommandRoute {
     case process
@@ -120,6 +121,7 @@ struct ContentView: View {
     @State private var isLoading = false
     @State private var result: ProcessResponse?
     @State private var errorText: String?
+    @State private var keyMonitor: Any?
     @FocusState private var inputFocused: Bool
 
     private var canSend: Bool {
@@ -144,6 +146,16 @@ struct ContentView: View {
         return slashCommands.filter { cmd in
             cmd.command.contains(slashQuery) || cmd.description.lowercased().contains(slashQuery)
         }
+    }
+
+    private var autocompleteSuggestions: [SlashCommand] {
+        guard let slashQuery else { return [] }
+        if slashQuery.isEmpty {
+            return commandSuggestions
+        }
+
+        let prefixMatches = commandSuggestions.filter { $0.command.hasPrefix(slashQuery) }
+        return prefixMatches.isEmpty ? commandSuggestions : prefixMatches
     }
 
     private var shouldShowCommands: Bool {
@@ -197,7 +209,13 @@ struct ContentView: View {
         }
         .padding(16)
         .frame(width: 340)
-        .onAppear { inputFocused = true }
+        .onAppear {
+            inputFocused = true
+            installKeyMonitor()
+        }
+        .onDisappear {
+            removeKeyMonitor()
+        }
     }
 
     @ViewBuilder
@@ -244,6 +262,43 @@ struct ContentView: View {
         }
 
         message = command.template
+    }
+
+    private func autocompleteSlashCommand() {
+        guard let bestMatch = autocompleteSuggestions.first else { return }
+
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("/") else { return }
+
+        let parts = trimmed.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
+        guard !parts.isEmpty else {
+            message = "/\(bestMatch.command) "
+            return
+        }
+
+        let args = parts.count > 1 ? String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines) : ""
+        message = args.isEmpty ? "/\(bestMatch.command) " : "/\(bestMatch.command) \(args)"
+    }
+
+    private func installKeyMonitor() {
+        guard keyMonitor == nil else { return }
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == 48,
+               self.inputFocused,
+               self.shouldShowCommands,
+               !self.autocompleteSuggestions.isEmpty {
+                self.autocompleteSlashCommand()
+                return nil
+            }
+
+            return event
+        }
+    }
+
+    private func removeKeyMonitor() {
+        guard let keyMonitor else { return }
+        NSEvent.removeMonitor(keyMonitor)
+        self.keyMonitor = nil
     }
 
     private func parseSlashCommand(_ text: String) -> (command: SlashCommand, args: String)? {
