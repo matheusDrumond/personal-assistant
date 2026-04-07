@@ -2,6 +2,8 @@
 
 An AI-powered personal assistant that receives messages in natural language, automatically classifies the content type, and organizes everything in Notion — no friction, no switching between apps.
 
+<img src="./.github/public/demo.gif" alt="Demo">
+
 Built from scratch with a real understanding of every technical decision: from API structure to LLM integration and external service communication.
 
 ## The Problem
